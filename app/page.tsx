@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, History, User, LogOut, Shield, Target, Users, Trash2 } from "lucide-react"
+import { AlertCircle, CheckCircle, History, User, LogOut, Shield, Target, Users, Trash2, Mail, Key } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -51,6 +51,13 @@ interface UserData {
   password: string
   email: string
   createdAt: string
+}
+
+interface PasswordResetToken {
+  email: string
+  token: string
+  expiresAt: number
+  createdAt: number
 }
 
 const biasDatabase = {
@@ -317,6 +324,16 @@ export default function BiasBusterApp() {
   const [authError, setAuthError] = useState("")
   const [isAuthenticating, setIsAuthenticating] = useState(false)
 
+  // Password reset states
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("")
+  const [resetToken, setResetToken] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [resetMessage, setResetMessage] = useState("")
+  const [isProcessingReset, setIsProcessingReset] = useState(false)
+
   useEffect(() => {
     const savedUser = localStorage.getItem("biasbuster-user")
     const savedUsername = localStorage.getItem("biasbuster-username")
@@ -333,7 +350,188 @@ export default function BiasBusterApp() {
       }))
       setHistory(parsedHistory)
     }
+
+    // Check for password reset token in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const token = urlParams.get("reset-token")
+    const emailParam = urlParams.get("email")
+
+    if (token && emailParam) {
+      setResetToken(token)
+      setForgotPasswordEmail(emailParam)
+      setShowResetPassword(true)
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
   }, [])
+
+  // Generate a secure random token
+  const generateResetToken = (): string => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    let result = ""
+    for (let i = 0; i < 32; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return result
+  }
+
+  // Simulate sending email (in real app, this would call your backend)
+  const simulateEmailSend = (email: string, resetLink: string): void => {
+    // In a real application, you would send this via your email service
+    const emailContent = `
+🔐 BiasBuster Password Reset Request
+
+Hello,
+
+You requested to reset your password for your BiasBuster account.
+
+Click the link below to reset your password:
+${resetLink}
+
+This link will expire in 1 hour for security reasons.
+
+If you didn't request this password reset, please ignore this email.
+
+Best regards,
+The BiasBuster Team
+    `
+
+    console.log("📧 EMAIL SENT TO:", email)
+    console.log("📧 EMAIL CONTENT:", emailContent)
+
+    // For demo purposes, show the reset link in an alert
+    alert(
+      `🔐 Password Reset Email Sent!\n\nFor demo purposes, here's your reset link:\n${resetLink}\n\nIn a real app, this would be sent to your email: ${email}`,
+    )
+  }
+
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail.trim()) {
+      setAuthError("Please enter your email address")
+      return
+    }
+
+    setIsProcessingReset(true)
+    setAuthError("")
+
+    try {
+      const savedUsers: Record<string, UserData> = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
+
+      if (!savedUsers[forgotPasswordEmail.toLowerCase()]) {
+        setAuthError("No account found with this email address")
+        setIsProcessingReset(false)
+        return
+      }
+
+      // Generate reset token
+      const token = generateResetToken()
+      const resetData: PasswordResetToken = {
+        email: forgotPasswordEmail.toLowerCase(),
+        token: token,
+        expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour from now
+        createdAt: Date.now(),
+      }
+
+      // Save reset token
+      const resetTokens: Record<string, PasswordResetToken> = JSON.parse(
+        localStorage.getItem("biasbuster-reset-tokens") || "{}",
+      )
+      resetTokens[token] = resetData
+      localStorage.setItem("biasbuster-reset-tokens", JSON.stringify(resetTokens))
+
+      // Create reset link
+      const resetLink = `${window.location.origin}${window.location.pathname}?reset-token=${token}&email=${encodeURIComponent(forgotPasswordEmail.toLowerCase())}`
+
+      // Simulate sending email
+      simulateEmailSend(forgotPasswordEmail, resetLink)
+
+      setResetMessage("Password reset instructions have been sent to your email!")
+      setShowForgotPassword(false)
+      setForgotPasswordEmail("")
+    } catch (error) {
+      console.error("Password reset error:", error)
+      setAuthError("An error occurred while processing your request. Please try again.")
+    }
+
+    setIsProcessingReset(false)
+  }
+
+  const handlePasswordReset = async () => {
+    if (!newPassword.trim() || !confirmPassword.trim()) {
+      setAuthError("Please fill in all fields")
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setAuthError("Passwords do not match")
+      return
+    }
+
+    if (newPassword.length < 6) {
+      setAuthError("Password must be at least 6 characters long")
+      return
+    }
+
+    setIsProcessingReset(true)
+    setAuthError("")
+
+    try {
+      // Verify reset token
+      const resetTokens: Record<string, PasswordResetToken> = JSON.parse(
+        localStorage.getItem("biasbuster-reset-tokens") || "{}",
+      )
+      const tokenData = resetTokens[resetToken]
+
+      if (!tokenData) {
+        setAuthError("Invalid or expired reset token")
+        setIsProcessingReset(false)
+        return
+      }
+
+      if (Date.now() > tokenData.expiresAt) {
+        setAuthError("Reset token has expired. Please request a new password reset.")
+        setIsProcessingReset(false)
+        return
+      }
+
+      if (tokenData.email !== forgotPasswordEmail.toLowerCase()) {
+        setAuthError("Invalid reset token")
+        setIsProcessingReset(false)
+        return
+      }
+
+      // Update user password
+      const savedUsers: Record<string, UserData> = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
+      if (savedUsers[tokenData.email]) {
+        savedUsers[tokenData.email].password = newPassword
+        localStorage.setItem("biasbuster-users", JSON.stringify(savedUsers))
+
+        // Remove used token
+        delete resetTokens[resetToken]
+        localStorage.setItem("biasbuster-reset-tokens", JSON.stringify(resetTokens))
+
+        setResetMessage("Password successfully updated! You can now sign in with your new password.")
+        setShowResetPassword(false)
+        setNewPassword("")
+        setConfirmPassword("")
+        setResetToken("")
+        setForgotPasswordEmail("")
+
+        // Auto-open login dialog
+        setTimeout(() => {
+          setShowLogin(true)
+          setResetMessage("")
+        }, 2000)
+      } else {
+        setAuthError("User account not found")
+      }
+    } catch (error) {
+      console.error("Password reset error:", error)
+      setAuthError("An error occurred while resetting your password. Please try again.")
+    }
+
+    setIsProcessingReset(false)
+  }
 
   const analyzeText = async () => {
     if (!text.trim()) return
@@ -546,6 +744,17 @@ export default function BiasBusterApp() {
     setIsSignUp(false)
   }
 
+  const resetPasswordForms = () => {
+    setForgotPasswordEmail("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setResetToken("")
+    setAuthError("")
+    setResetMessage("")
+    setShowForgotPassword(false)
+    setShowResetPassword(false)
+  }
+
   const handleLogout = () => {
     setUser(null)
     setUsername("")
@@ -554,6 +763,7 @@ export default function BiasBusterApp() {
     setHistory([])
     localStorage.removeItem("biasbuster-history")
     resetLoginForm()
+    resetPasswordForms()
   }
 
   const clearHistoryItem = (itemId: string) => {
@@ -598,6 +808,14 @@ export default function BiasBusterApp() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Reset Message Banner */}
+      {resetMessage && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 text-center">
+          <CheckCircle className="inline h-4 w-4 mr-2" />
+          {resetMessage}
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -625,6 +843,7 @@ export default function BiasBusterApp() {
                     setShowLogin(open)
                     if (!open) {
                       resetLoginForm()
+                      resetPasswordForms()
                     }
                   }}
                 >
@@ -698,6 +917,22 @@ export default function BiasBusterApp() {
                         {isAuthenticating ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
                       </Button>
 
+                      {!isSignUp && (
+                        <div className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowForgotPassword(true)
+                              setAuthError("")
+                            }}
+                            className="text-sm text-indigo-600 hover:text-indigo-500 underline"
+                            disabled={isAuthenticating}
+                          >
+                            Forgot your password?
+                          </button>
+                        </div>
+                      )}
+
                       <div className="text-center">
                         <button
                           type="button"
@@ -719,6 +954,114 @@ export default function BiasBusterApp() {
           </div>
         </div>
       </header>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Mail className="h-5 w-5 mr-2 text-indigo-600" />
+              Reset Your Password
+            </DialogTitle>
+            <DialogDescription>
+              Enter your email address and we'll send you instructions to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {authError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{authError}</div>
+            )}
+
+            <div>
+              <Label htmlFor="forgot-email">Email Address</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                value={forgotPasswordEmail}
+                onChange={(e) => setForgotPasswordEmail(e.target.value.toLowerCase())}
+                placeholder="your@email.com"
+                disabled={isProcessingReset}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowForgotPassword(false)
+                  setForgotPasswordEmail("")
+                  setAuthError("")
+                }}
+                className="flex-1"
+                disabled={isProcessingReset}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleForgotPassword}
+                className="flex-1"
+                disabled={isProcessingReset || !forgotPasswordEmail.trim()}
+              >
+                {isProcessingReset ? "Sending..." : "Send Reset Link"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Key className="h-5 w-5 mr-2 text-indigo-600" />
+              Create New Password
+            </DialogTitle>
+            <DialogDescription>
+              Enter your new password below. Make sure it's secure and easy for you to remember.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {authError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{authError}</div>
+            )}
+
+            <div>
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                disabled={isProcessingReset}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="confirm-password">Confirm New Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                disabled={isProcessingReset}
+              />
+            </div>
+
+            <div className="text-xs text-gray-500">Password must be at least 6 characters long.</div>
+
+            <Button
+              onClick={handlePasswordReset}
+              className="w-full"
+              disabled={isProcessingReset || !newPassword.trim() || !confirmPassword.trim()}
+            >
+              {isProcessingReset ? "Updating Password..." : "Update Password"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Hero Section */}
