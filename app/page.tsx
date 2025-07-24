@@ -1,5 +1,7 @@
 "use client"
 
+import { DialogDescription } from "@/components/ui/dialog"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,14 +13,7 @@ import { AlertCircle, CheckCircle, History, User, LogOut, Shield, Target, Users,
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 interface BiasResult {
   word: string
@@ -154,6 +149,18 @@ const biasDatabase = {
       reason: "Derogatory religious term",
       suggestions: ["non-believer", "person of different faith"],
     },
+    "all extremists": {
+      reason: "Makes sweeping generalizations about religious groups, promoting harmful stereotypes",
+      suggestions: ["some individuals may be", "certain people are", "individual beliefs vary"],
+    },
+    "always violent": {
+      reason: "Perpetuates dangerous stereotypes about religious communities",
+      suggestions: ["some may be", "individual actions vary", "people differ in their"],
+    },
+    "naturally radical": {
+      reason: "Implies inherent extremism in religious groups, which is false and harmful",
+      suggestions: ["some individuals may be", "certain people are", "individual beliefs vary"],
+    },
   },
   age: {
     young: {
@@ -206,6 +213,54 @@ const biasDatabase = {
       reason: "Othering language that treats non-native speakers as foreign",
       suggestions: ["international background", "multilingual", "global perspective"],
     },
+    "north indian": {
+      reason: "Can perpetuate regional stereotypes and generalizations",
+      suggestions: ["some individuals", "certain people", "people from various backgrounds"],
+    },
+    "south indian": {
+      reason: "Can perpetuate regional stereotypes and generalizations",
+      suggestions: ["some individuals", "certain people", "people from various backgrounds"],
+    },
+    "always loud": {
+      reason: "Makes unfounded generalizations about behavioral traits based on origin",
+      suggestions: ["may be expressive", "can be vocal", "some individuals are"],
+    },
+    "andhra pradesh people": {
+      reason: "Makes generalizations about people based on their state, ignoring individual diversity",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "telangana people": {
+      reason: "Makes generalizations about people based on their state, ignoring individual diversity",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "tamil people": {
+      reason: "Makes generalizations about people based on their state/ethnicity, ignoring individual diversity",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "malayali people": {
+      reason: "Makes generalizations about people based on their state/ethnicity, ignoring individual diversity",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "gujarati people": {
+      reason: "Makes generalizations about people based on their state/ethnicity, ignoring individual diversity",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "punjabi people": {
+      reason: "Makes generalizations about people based on their state/ethnicity, ignoring individual diversity",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "bihari people": {
+      reason: "Makes generalizations about people based on their state, often perpetuating negative stereotypes",
+      suggestions: ["some individuals", "many people", "people from various backgrounds"],
+    },
+    "only good": {
+      reason: "Implies that people from other regions are not good, creating divisive comparisons",
+      suggestions: ["talented", "skilled", "capable", "have many positive qualities"],
+    },
+    "only smart": {
+      reason: "Implies that people from other regions lack intelligence, creating harmful comparisons",
+      suggestions: ["intelligent", "knowledgeable", "well-educated", "have strong academic backgrounds"],
+    },
   },
   politics: {
     "liberal agenda": {
@@ -245,6 +300,24 @@ const biasDatabase = {
     "suffers from": {
       reason: "Implies victimhood rather than acknowledging lived experience",
       suggestions: ["has", "lives with", "experiences"],
+    },
+  },
+  education: {
+    "private school": {
+      reason: "Can perpetuate stereotypes about educational quality based on school type",
+      suggestions: ["well-funded schools", "schools with resources", "certain educational environments"],
+    },
+    "public school": {
+      reason: "Can perpetuate negative stereotypes about public education",
+      suggestions: ["community schools", "local schools", "neighborhood schools"],
+    },
+    "charter school": {
+      reason: "May imply superiority or inferiority compared to other school types",
+      suggestions: ["alternative schools", "specialized schools", "educational options"],
+    },
+    homeschooled: {
+      reason: "Can perpetuate stereotypes about homeschooling quality or social skills",
+      suggestions: ["home-educated", "independently educated", "alternative education"],
     },
   },
 }
@@ -292,6 +365,46 @@ const contextualBiasPatterns = [
     rewrite: "People of all religious backgrounds have diverse beliefs, values, and characteristics.",
   },
   {
+    pattern:
+      /(people from|folks from|members of|those from) (that|this|the) (religion|faith|church|mosque|temple) are (all|always|never|naturally|inherently|typically|usually)/gi,
+    category: "religion",
+    discriminationType: "Religious Discrimination",
+    reason: "Makes sweeping generalizations about entire religious groups, promoting harmful stereotypes",
+    suggestions: ["Some individuals may be", "Certain people are", "Individual beliefs vary among"],
+    rewrite:
+      "Religious communities are diverse, with individuals holding varying beliefs and practices. It's important not to generalize about entire faith communities based on the actions of a few.",
+  },
+  {
+    pattern:
+      /(muslims|christians|jews|hindus|buddhists|sikhs|catholics|protestants|evangelicals) are (all|always|never|naturally|inherently|typically|usually) (extremists|terrorists|fundamentalists|radicals|violent|peaceful|good|bad)/gi,
+    category: "religion",
+    discriminationType: "Religious Discrimination",
+    reason: "Makes harmful generalizations about religious groups, often perpetuating dangerous stereotypes",
+    suggestions: ["Some individuals may be", "Certain people are", "Individual beliefs and actions vary"],
+    rewrite:
+      "Religious communities contain diverse individuals with varying beliefs, practices, and behaviors. Generalizations about entire faith groups are inaccurate and harmful.",
+  },
+  {
+    pattern:
+      /(that|this|the) (religion|faith|church|denomination) (teaches|promotes|encourages) (violence|hatred|extremism|terrorism)/gi,
+    category: "religion",
+    discriminationType: "Religious Discrimination",
+    reason: "Makes broad negative claims about religious teachings without nuance or context",
+    suggestions: ["Some interpretations may", "Certain groups might", "Individual understanding varies"],
+    rewrite:
+      "Religious texts and teachings are interpreted differently by various individuals and communities. It's important to avoid generalizing about entire faith traditions.",
+  },
+  {
+    pattern:
+      /(all|most) (religious|faith-based) (people|individuals|folks) are (extremists|fanatics|intolerant|backwards|primitive)/gi,
+    category: "religion",
+    discriminationType: "Religious Discrimination",
+    reason: "Makes sweeping negative generalizations about religious people as a whole",
+    suggestions: ["Some individuals may be", "Certain people are", "Individual beliefs vary"],
+    rewrite:
+      "People of faith, like all individuals, have diverse perspectives, behaviors, and levels of religious observance. Generalizations about religious people are inaccurate and unfair.",
+  },
+  {
     pattern: /(old|older) (people|workers) (can't|cannot|are unable)/gi,
     category: "age",
     discriminationType: "Age Discrimination",
@@ -307,6 +420,118 @@ const contextualBiasPatterns = [
     reason: "Makes generalizations based on nationality",
     suggestions: ["Some individuals are", "Many people are"],
     rewrite: "Individual characteristics and work styles vary among people regardless of their country of origin.",
+  },
+  {
+    pattern:
+      /(private|charter) school (students|kids|children) are (always |naturally |inherently )?(smarter|better|superior|more intelligent) (than|to) (public|state) school/gi,
+    category: "education",
+    discriminationType: "Educational Discrimination",
+    reason: "Makes unfounded generalizations about student intelligence based on school type",
+    suggestions: [
+      "Students from different educational backgrounds bring diverse strengths",
+      "Academic success depends on individual effort and support, not school type",
+    ],
+    rewrite:
+      "Student success depends on individual effort, family support, and educational resources rather than the type of school attended. Students from all educational backgrounds can achieve academic excellence.",
+  },
+  {
+    pattern:
+      /(public|state) school (students|kids|children) are (always |naturally |inherently )?(dumber|worse|inferior|less intelligent) (than|to) (private|charter) school/gi,
+    category: "education",
+    discriminationType: "Educational Discrimination",
+    reason: "Makes unfounded generalizations about student intelligence based on school type",
+    suggestions: [
+      "Students from different educational backgrounds bring diverse strengths",
+      "Academic success depends on individual effort and support, not school type",
+    ],
+    rewrite:
+      "Student success depends on individual effort, family support, and educational resources rather than the type of school attended. Students from all educational backgrounds can achieve academic excellence.",
+  },
+  {
+    pattern:
+      /(private|charter|public|state|homeschool) (students|kids|children) are (always|never|naturally|inherently)/gi,
+    category: "education",
+    discriminationType: "Educational Discrimination",
+    reason: "Makes broad generalizations about students based on their educational background",
+    suggestions: ["Some students are", "Many students are", "Individual students may be"],
+    rewrite:
+      "Individual student characteristics and abilities vary regardless of educational background. Success depends on personal effort, support systems, and individual circumstances.",
+  },
+  {
+    pattern: /(homeschooled|home.?schooled) (kids|children|students) (are|lack|don't have|can't)/gi,
+    category: "education",
+    discriminationType: "Educational Discrimination",
+    reason: "Perpetuates stereotypes about homeschooled students' social or academic abilities",
+    suggestions: ["Some students may", "Individual students might", "Students from various backgrounds"],
+    rewrite:
+      "Homeschooled students, like all students, have diverse social and academic experiences. Their success depends on individual circumstances, family support, and educational approach rather than schooling method.",
+  },
+  {
+    pattern:
+      /(people from|folks from|individuals from) (north|south|east|west) (india|china|america|europe|africa|asia) are (always|never|naturally|inherently|typically)/gi,
+    category: "nationality",
+    discriminationType: "Regional Discrimination",
+    reason: "Makes sweeping generalizations about people based on their geographic region",
+    suggestions: ["Some individuals are", "Many people are", "Certain people may be"],
+    rewrite:
+      "Individual characteristics and behaviors vary greatly among people regardless of their geographic origin. Cultural expressions differ among individuals within any region.",
+  },
+  {
+    pattern:
+      /(north|south|east|west) (indians|chinese|americans|europeans|africans|asians) are (always|never|naturally|inherently|typically|usually)/gi,
+    category: "nationality",
+    discriminationType: "Regional Discrimination",
+    reason: "Makes broad generalizations about people based on regional identity",
+    suggestions: ["Some people are", "Many individuals are", "Certain people may be"],
+    rewrite:
+      "People from all regions have diverse personalities, behaviors, and characteristics that vary by individual rather than geographic location.",
+  },
+  {
+    pattern:
+      /(loud|quiet|aggressive|passive|smart|dumb|lazy|hardworking) (people from|folks from) (north|south|east|west)/gi,
+    category: "nationality",
+    discriminationType: "Regional Discrimination",
+    reason: "Attributes behavioral or personality traits to entire regional populations",
+    suggestions: ["some individuals may be", "certain people can be", "individual traits vary"],
+    rewrite:
+      "Individual personality traits and behaviors vary widely among people regardless of their regional background.",
+  },
+  {
+    pattern:
+      /(people from|folks from|individuals from) (andhra pradesh|telangana|tamil nadu|kerala|karnataka|maharashtra|gujarat|punjab|bihar|uttar pradesh|west bengal|rajasthan|madhya pradesh|odisha|assam|jharkhand|chhattisgarh|uttarakhand|himachal pradesh|haryana|delhi|goa|manipur|meghalaya|mizoram|nagaland|sikkim|tripura|arunachal pradesh) are (only|always|never|naturally|inherently|typically|usually|just) (good|bad|smart|dumb|lazy|hardworking|honest|dishonest|violent|peaceful|rich|poor|educated|uneducated)/gi,
+    category: "nationality",
+    discriminationType: "Regional Discrimination",
+    reason:
+      "Makes sweeping generalizations about people based on their state or region, ignoring individual diversity and perpetuating harmful stereotypes",
+    suggestions: [
+      "Some individuals from various backgrounds are",
+      "Many people regardless of origin are",
+      "Individual qualities vary among all people",
+    ],
+    rewrite:
+      "People from all regions of India have diverse talents, qualities, and characteristics. Individual abilities and traits vary greatly regardless of geographic origin, and it's important not to generalize about entire populations based on their state or region.",
+  },
+  {
+    pattern:
+      /(andhra pradesh|telangana|tamil nadu|kerala|karnataka|maharashtra|gujarat|punjab|bihar|uttar pradesh|west bengal|rajasthan|madhya pradesh|odisha|assam|jharkhand|chhattisgarh|uttarakhand|himachal pradesh|haryana|delhi|goa) (people|folks|individuals) are (only|always|never|naturally|inherently|typically|usually|just)/gi,
+    category: "nationality",
+    discriminationType: "Regional Discrimination",
+    reason:
+      "Creates unfair stereotypes about entire populations based on their geographic location, which ignores individual diversity",
+    suggestions: ["Some people are", "Many individuals are", "Individual characteristics vary among"],
+    rewrite:
+      "Individual characteristics, abilities, and qualities vary greatly among people regardless of their regional background. It's important to recognize the diversity within all communities rather than making generalizations.",
+  },
+  {
+    pattern:
+      /(north|south|east|west) indian (people|folks|individuals) are (only|always|never|naturally|inherently|typically|usually|just) (good|bad|smart|dumb|lazy|hardworking|honest|dishonest|violent|peaceful)/gi,
+    category: "nationality",
+    discriminationType: "Regional Discrimination",
+    reason:
+      "Makes broad generalizations about large populations based on geographic regions, perpetuating harmful stereotypes",
+    suggestions: ["Some individuals are", "Many people are", "Individual traits vary among"],
+    rewrite:
+      "India's diverse population includes people with varying characteristics, abilities, and qualities regardless of their regional background. Individual traits are not determined by geographic location.",
   },
 ]
 
@@ -535,6 +760,12 @@ The BiasBuster Team
 
   const analyzeText = async () => {
     if (!text.trim()) return
+
+    // Check if user is logged in, if not show login dialog
+    if (!user) {
+      setShowLogin(true)
+      return
+    }
 
     setIsAnalyzing(true)
 
@@ -854,12 +1085,12 @@ The BiasBuster Team
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>{isSignUp ? "Create Account" : "Welcome Back"}</DialogTitle>
+                    <DialogHeader className="text-center">
+                      <DialogTitle>Welcome</DialogTitle>
                       <DialogDescription>
                         {isSignUp
-                          ? "Create your BiasBuster account to save analysis history"
-                          : "Sign in to access your analysis history"}
+                          ? "Create your BiasBuster account to analyze text for bias and save your analysis history"
+                          : "Sign in to analyze text for bias and access your analysis history"}
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -1068,9 +1299,9 @@ The BiasBuster Team
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-gray-900 mb-4">Write Fair, Write Aware</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            {
-              "Discover unconscious bias in your writing and learn to communicate more inclusively. Perfect for job posts, content, and professional communication."
-            }
+            Analyze text for bias across multiple dimensions: gender, racial, religious, regional, educational,
+            socio-economic, age-related, and more. Get detailed explanations of why content may be biased and receive
+            inclusive alternatives. Perfect for job posts, content, and professional communication.
           </p>
           <div className="flex justify-center space-x-8 text-sm text-gray-500">
             <div className="flex items-center">
@@ -1101,7 +1332,11 @@ The BiasBuster Team
             <Card>
               <CardHeader>
                 <CardTitle>Analyze Your Text</CardTitle>
-                <CardDescription>Paste your content below to check for potentially biased language</CardDescription>
+                <CardDescription>
+                  Paste your content below to analyze for bias across gender, racial, religious, regional, educational,
+                  socio-economic, age-related, and other dimensions. Get detailed explanations and inclusive
+                  alternatives.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
