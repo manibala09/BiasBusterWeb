@@ -46,6 +46,13 @@ interface HistoryItem {
   timestamp: Date
 }
 
+interface UserData {
+  username: string
+  password: string
+  email: string
+  createdAt: string
+}
+
 const biasDatabase = {
   gender: {
     rockstar: {
@@ -462,51 +469,70 @@ export default function BiasBusterApp() {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    const savedUsers = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
+    try {
+      const savedUsers: Record<string, UserData> = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
 
-    if (isSignUp) {
-      // Sign up logic
-      if (savedUsers[email]) {
-        setAuthError("Account already exists. Please sign in instead.")
-        setIsAuthenticating(false)
-        return
+      if (isSignUp) {
+        // Sign up logic - check if email already exists
+        if (savedUsers[email.toLowerCase()]) {
+          setAuthError("An account with this email already exists. Please sign in instead.")
+          setIsAuthenticating(false)
+          return
+        }
+
+        // Create new account with email as key (lowercase for consistency)
+        const newUser: UserData = {
+          username: username.trim(),
+          password: password,
+          email: email.toLowerCase(),
+          createdAt: new Date().toISOString(),
+        }
+
+        savedUsers[email.toLowerCase()] = newUser
+        localStorage.setItem("biasbuster-users", JSON.stringify(savedUsers))
+
+        // Set user session
+        setUser(email.toLowerCase())
+        setUsername(username.trim())
+        localStorage.setItem("biasbuster-user", email.toLowerCase())
+        localStorage.setItem("biasbuster-username", username.trim())
+
+        setShowLogin(false)
+        resetLoginForm()
+
+        // Add page refresh
+        window.location.reload()
+      } else {
+        // Sign in logic - check if account exists
+        const userKey = email.toLowerCase()
+        if (!savedUsers[userKey]) {
+          setAuthError("No account found with this email. Please sign up first.")
+          setIsAuthenticating(false)
+          return
+        }
+
+        // Check password
+        if (savedUsers[userKey].password !== password) {
+          setAuthError("Incorrect password. Please try again.")
+          setIsAuthenticating(false)
+          return
+        }
+
+        // Successful login
+        setUser(userKey)
+        setUsername(savedUsers[userKey].username)
+        localStorage.setItem("biasbuster-user", userKey)
+        localStorage.setItem("biasbuster-username", savedUsers[userKey].username)
+
+        setShowLogin(false)
+        resetLoginForm()
+
+        // Add page refresh
+        window.location.reload()
       }
-
-      // Create new account
-      savedUsers[email] = {
-        username: username,
-        password: password,
-        createdAt: new Date().toISOString(),
-      }
-      localStorage.setItem("biasbuster-users", JSON.stringify(savedUsers))
-
-      setUser(email)
-      setUsername(username)
-      localStorage.setItem("biasbuster-user", email)
-      localStorage.setItem("biasbuster-username", username)
-      setShowLogin(false)
-      resetLoginForm()
-    } else {
-      // Sign in logic
-      if (!savedUsers[email]) {
-        setAuthError("No account found with this email. Please sign up first.")
-        setIsAuthenticating(false)
-        return
-      }
-
-      if (savedUsers[email].password !== password) {
-        setAuthError("Incorrect password. Please try again.")
-        setIsAuthenticating(false)
-        return
-      }
-
-      // Successful login
-      setUser(email)
-      setUsername(savedUsers[email].username)
-      localStorage.setItem("biasbuster-user", email)
-      localStorage.setItem("biasbuster-username", savedUsers[email].username)
-      setShowLogin(false)
-      resetLoginForm()
+    } catch (error) {
+      console.error("Authentication error:", error)
+      setAuthError("An error occurred during authentication. Please try again.")
     }
 
     setIsAuthenticating(false)
@@ -644,7 +670,7 @@ export default function BiasBusterApp() {
                           id="email"
                           type="email"
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={(e) => setEmail(e.target.value.toLowerCase())}
                           placeholder="your@email.com"
                           disabled={isAuthenticating}
                         />
