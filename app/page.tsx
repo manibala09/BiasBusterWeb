@@ -46,6 +46,7 @@ interface UserData {
   password: string
   email: string
   createdAt: string
+  history: HistoryItem[]
 }
 
 interface PasswordResetToken {
@@ -53,6 +54,163 @@ interface PasswordResetToken {
   token: string
   expiresAt: number
   createdAt: number
+}
+
+// Simulated backend API calls
+const API_BASE = "https://api.biasbuster.com" // This would be your actual API endpoint
+
+const apiCall = async (endpoint: string, method = "GET", data?: any) => {
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 1000))
+
+  // For demo purposes, we'll still use localStorage but structure it like a real backend
+  // In production, this would be actual HTTP requests to your server
+
+  if (endpoint === "/users/register" && method === "POST") {
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+
+    if (users[data.email.toLowerCase()]) {
+      throw new Error("User already exists")
+    }
+
+    const newUser: UserData = {
+      username: data.username,
+      password: data.password, // In real app, this would be hashed
+      email: data.email.toLowerCase(),
+      createdAt: new Date().toISOString(),
+      history: [],
+    }
+
+    users[data.email.toLowerCase()] = newUser
+    localStorage.setItem("biasbuster-global-users", JSON.stringify(users))
+
+    return { success: true, user: { email: newUser.email, username: newUser.username } }
+  }
+
+  if (endpoint === "/users/login" && method === "POST") {
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+    const user = users[data.email.toLowerCase()]
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    if (user.password !== data.password) {
+      throw new Error("Invalid password")
+    }
+
+    return { success: true, user: { email: user.email, username: user.username } }
+  }
+
+  if (endpoint === "/users/profile" && method === "GET") {
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+    const user = users[data.email.toLowerCase()]
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    return { user: { email: user.email, username: user.username, history: user.history || [] } }
+  }
+
+  if (endpoint === "/users/history" && method === "POST") {
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+    const user = users[data.email.toLowerCase()]
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    if (!user.history) {
+      user.history = []
+    }
+
+    user.history = [data.historyItem, ...user.history].slice(0, 10)
+    users[data.email.toLowerCase()] = user
+    localStorage.setItem("biasbuster-global-users", JSON.stringify(users))
+
+    return { success: true, history: user.history }
+  }
+
+  if (endpoint === "/users/history" && method === "DELETE") {
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+    const user = users[data.email.toLowerCase()]
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    if (data.itemId) {
+      user.history = (user.history || []).filter((item: HistoryItem) => item.id !== data.itemId)
+    } else {
+      user.history = []
+    }
+
+    users[data.email.toLowerCase()] = user
+    localStorage.setItem("biasbuster-global-users", JSON.stringify(users))
+
+    return { success: true, history: user.history }
+  }
+
+  if (endpoint === "/users/forgot-password" && method === "POST") {
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+
+    if (!users[data.email.toLowerCase()]) {
+      throw new Error("User not found")
+    }
+
+    const token = generateResetToken()
+    const resetData: PasswordResetToken = {
+      email: data.email.toLowerCase(),
+      token: token,
+      expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
+      createdAt: Date.now(),
+    }
+
+    const resetTokens = JSON.parse(localStorage.getItem("biasbuster-reset-tokens") || "{}")
+    resetTokens[token] = resetData
+    localStorage.setItem("biasbuster-reset-tokens", JSON.stringify(resetTokens))
+
+    return { success: true, token }
+  }
+
+  if (endpoint === "/users/reset-password" && method === "POST") {
+    const resetTokens = JSON.parse(localStorage.getItem("biasbuster-reset-tokens") || "{}")
+    const tokenData = resetTokens[data.token]
+
+    if (!tokenData || Date.now() > tokenData.expiresAt) {
+      throw new Error("Invalid or expired token")
+    }
+
+    const users = JSON.parse(localStorage.getItem("biasbuster-global-users") || "{}")
+    const user = users[tokenData.email]
+
+    if (!user) {
+      throw new Error("User not found")
+    }
+
+    user.password = data.newPassword
+    users[tokenData.email] = user
+    localStorage.setItem("biasbuster-global-users", JSON.stringify(users))
+
+    // Remove used token
+    delete resetTokens[data.token]
+    localStorage.setItem("biasbuster-reset-tokens", JSON.stringify(resetTokens))
+
+    return { success: true }
+  }
+
+  throw new Error("API endpoint not found")
+}
+
+// Generate a secure random token
+const generateResetToken = (): string => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  let result = ""
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
 }
 
 const biasDatabase = {
@@ -560,20 +718,16 @@ export default function BiasBusterApp() {
   const [isProcessingReset, setIsProcessingReset] = useState(false)
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("biasbuster-user")
-    const savedUsername = localStorage.getItem("biasbuster-username")
-    const savedHistory = localStorage.getItem("biasbuster-history")
+    // Check for existing session
+    const savedUser = localStorage.getItem("biasbuster-session-user")
+    const savedUsername = localStorage.getItem("biasbuster-session-username")
 
     if (savedUser && savedUsername) {
       setUser(savedUser)
       setUsername(savedUsername)
-    }
-    if (savedHistory) {
-      const parsedHistory = JSON.parse(savedHistory).map((item: any) => ({
-        ...item,
-        timestamp: new Date(item.timestamp), // Convert string back to Date object
-      }))
-      setHistory(parsedHistory)
+
+      // Load user history from backend
+      loadUserHistory(savedUser)
     }
 
     // Check for password reset token in URL
@@ -590,14 +744,18 @@ export default function BiasBusterApp() {
     }
   }, [])
 
-  // Generate a secure random token
-  const generateResetToken = (): string => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    let result = ""
-    for (let i = 0; i < 32; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length))
+  const loadUserHistory = async (userEmail: string) => {
+    try {
+      const response = await apiCall("/users/profile", "GET", { email: userEmail })
+      setHistory(
+        response.user.history.map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp),
+        })),
+      )
+    } catch (error) {
+      console.error("Failed to load user history:", error)
     }
-    return result
   }
 
   // Simulate sending email (in real app, this would call your backend)
@@ -640,32 +798,12 @@ The BiasBuster Team
     setAuthError("")
 
     try {
-      const savedUsers: Record<string, UserData> = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
-
-      if (!savedUsers[forgotPasswordEmail.toLowerCase()]) {
-        setAuthError("No account found with this email address")
-        setIsProcessingReset(false)
-        return
-      }
-
-      // Generate reset token
-      const token = generateResetToken()
-      const resetData: PasswordResetToken = {
+      const response = await apiCall("/users/forgot-password", "POST", {
         email: forgotPasswordEmail.toLowerCase(),
-        token: token,
-        expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour from now
-        createdAt: Date.now(),
-      }
-
-      // Save reset token
-      const resetTokens: Record<string, PasswordResetToken> = JSON.parse(
-        localStorage.getItem("biasbuster-reset-tokens") || "{}",
-      )
-      resetTokens[token] = resetData
-      localStorage.setItem("biasbuster-reset-tokens", JSON.stringify(resetTokens))
+      })
 
       // Create reset link
-      const resetLink = `${window.location.origin}${window.location.pathname}?reset-token=${token}&email=${encodeURIComponent(forgotPasswordEmail.toLowerCase())}`
+      const resetLink = `${window.location.origin}${window.location.pathname}?reset-token=${response.token}&email=${encodeURIComponent(forgotPasswordEmail.toLowerCase())}`
 
       // Simulate sending email
       simulateEmailSend(forgotPasswordEmail, resetLink)
@@ -673,9 +811,8 @@ The BiasBuster Team
       setResetMessage("Password reset instructions have been sent to your email!")
       setShowForgotPassword(false)
       setForgotPasswordEmail("")
-    } catch (error) {
-      console.error("Password reset error:", error)
-      setAuthError("An error occurred while processing your request. Please try again.")
+    } catch (error: any) {
+      setAuthError(error.message || "An error occurred while processing your request.")
     }
 
     setIsProcessingReset(false)
@@ -701,58 +838,25 @@ The BiasBuster Team
     setAuthError("")
 
     try {
-      // Verify reset token
-      const resetTokens: Record<string, PasswordResetToken> = JSON.parse(
-        localStorage.getItem("biasbuster-reset-tokens") || "{}",
-      )
-      const tokenData = resetTokens[resetToken]
+      await apiCall("/users/reset-password", "POST", {
+        token: resetToken,
+        newPassword: newPassword,
+      })
 
-      if (!tokenData) {
-        setAuthError("Invalid or expired reset token")
-        setIsProcessingReset(false)
-        return
-      }
+      setResetMessage("Password successfully updated! You can now sign in with your new password.")
+      setShowResetPassword(false)
+      setNewPassword("")
+      setConfirmPassword("")
+      setResetToken("")
+      setForgotPasswordEmail("")
 
-      if (Date.now() > tokenData.expiresAt) {
-        setAuthError("Reset token has expired. Please request a new password reset.")
-        setIsProcessingReset(false)
-        return
-      }
-
-      if (tokenData.email !== forgotPasswordEmail.toLowerCase()) {
-        setAuthError("Invalid reset token")
-        setIsProcessingReset(false)
-        return
-      }
-
-      // Update user password
-      const savedUsers: Record<string, UserData> = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
-      if (savedUsers[tokenData.email]) {
-        savedUsers[tokenData.email].password = newPassword
-        localStorage.setItem("biasbuster-users", JSON.stringify(savedUsers))
-
-        // Remove used token
-        delete resetTokens[resetToken]
-        localStorage.setItem("biasbuster-reset-tokens", JSON.stringify(resetTokens))
-
-        setResetMessage("Password successfully updated! You can now sign in with your new password.")
-        setShowResetPassword(false)
-        setNewPassword("")
-        setConfirmPassword("")
-        setResetToken("")
-        setForgotPasswordEmail("")
-
-        // Auto-open login dialog
-        setTimeout(() => {
-          setShowLogin(true)
-          setResetMessage("")
-        }, 2000)
-      } else {
-        setAuthError("User account not found")
-      }
-    } catch (error) {
-      console.error("Password reset error:", error)
-      setAuthError("An error occurred while resetting your password. Please try again.")
+      // Auto-open login dialog
+      setTimeout(() => {
+        setShowLogin(true)
+        setResetMessage("")
+      }, 2000)
+    } catch (error: any) {
+      setAuthError(error.message || "An error occurred while resetting your password.")
     }
 
     setIsProcessingReset(false)
@@ -871,7 +975,7 @@ The BiasBuster Team
     setAnalysis(result)
     setIsAnalyzing(false)
 
-    // Save to history if user is logged in
+    // Save to history via backend
     if (user) {
       const historyItem: HistoryItem = {
         id: Date.now().toString(),
@@ -880,9 +984,21 @@ The BiasBuster Team
         biasedWords: result.biasedWords.length,
         timestamp: new Date(),
       }
-      const newHistory = [historyItem, ...history].slice(0, 10)
-      setHistory(newHistory)
-      localStorage.setItem("biasbuster-history", JSON.stringify(newHistory))
+
+      try {
+        const response = await apiCall("/users/history", "POST", {
+          email: user,
+          historyItem: historyItem,
+        })
+        setHistory(
+          response.history.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          })),
+        )
+      } catch (error) {
+        console.error("Failed to save history:", error)
+      }
     }
   }
 
@@ -895,73 +1011,59 @@ The BiasBuster Team
     setIsAuthenticating(true)
     setAuthError("")
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
     try {
-      const savedUsers: Record<string, UserData> = JSON.parse(localStorage.getItem("biasbuster-users") || "{}")
-
       if (isSignUp) {
-        // Sign up logic - check if email already exists
-        if (savedUsers[email.toLowerCase()]) {
-          setAuthError("An account with this email already exists. Please sign in instead.")
-          setIsAuthenticating(false)
-          return
-        }
-
-        // Create new account with email as key (lowercase for consistency)
-        const newUser: UserData = {
+        // Register new user
+        const response = await apiCall("/users/register", "POST", {
           username: username.trim(),
-          password: password,
           email: email.toLowerCase(),
-          createdAt: new Date().toISOString(),
-        }
-
-        savedUsers[email.toLowerCase()] = newUser
-        localStorage.setItem("biasbuster-users", JSON.stringify(savedUsers))
+          password: password,
+        })
 
         // Set user session
-        setUser(email.toLowerCase())
-        setUsername(username.trim())
-        localStorage.setItem("biasbuster-user", email.toLowerCase())
-        localStorage.setItem("biasbuster-username", username.trim())
+        setUser(response.user.email)
+        setUsername(response.user.username)
+        localStorage.setItem("biasbuster-session-user", response.user.email)
+        localStorage.setItem("biasbuster-session-username", response.user.username)
 
         setShowLogin(false)
         resetLoginForm()
+        setHistory([]) // New user has no history
 
         // Add page refresh
         window.location.reload()
       } else {
-        // Sign in logic - check if account exists
-        const userKey = email.toLowerCase()
-        if (!savedUsers[userKey]) {
-          setAuthError("No account found with this email. Please sign up first.")
-          setIsAuthenticating(false)
-          return
-        }
+        // Login existing user
+        const response = await apiCall("/users/login", "POST", {
+          email: email.toLowerCase(),
+          password: password,
+        })
 
-        // Check password
-        if (savedUsers[userKey].password !== password) {
-          setAuthError("Incorrect password. Please try again.")
-          setIsAuthenticating(false)
-          return
-        }
-
-        // Successful login
-        setUser(userKey)
-        setUsername(savedUsers[userKey].username)
-        localStorage.setItem("biasbuster-user", userKey)
-        localStorage.setItem("biasbuster-username", savedUsers[userKey].username)
+        // Set user session
+        setUser(response.user.email)
+        setUsername(response.user.username)
+        localStorage.setItem("biasbuster-session-user", response.user.email)
+        localStorage.setItem("biasbuster-session-username", response.user.username)
 
         setShowLogin(false)
         resetLoginForm()
 
+        // Load user history
+        await loadUserHistory(response.user.email)
+
         // Add page refresh
         window.location.reload()
       }
-    } catch (error) {
-      console.error("Authentication error:", error)
-      setAuthError("An error occurred during authentication. Please try again.")
+    } catch (error: any) {
+      if (error.message === "User already exists") {
+        setAuthError("An account with this email already exists. Please sign in instead.")
+      } else if (error.message === "User not found") {
+        setAuthError("No account found with this email. Please sign up first.")
+      } else if (error.message === "Invalid password") {
+        setAuthError("Incorrect password. Please try again.")
+      } else {
+        setAuthError("An error occurred during authentication. Please try again.")
+      }
     }
 
     setIsAuthenticating(false)
@@ -989,23 +1091,43 @@ The BiasBuster Team
   const handleLogout = () => {
     setUser(null)
     setUsername("")
-    localStorage.removeItem("biasbuster-user")
-    localStorage.removeItem("biasbuster-username")
+    localStorage.removeItem("biasbuster-session-user")
+    localStorage.removeItem("biasbuster-session-username")
     setHistory([])
-    localStorage.removeItem("biasbuster-history")
     resetLoginForm()
     resetPasswordForms()
   }
 
-  const clearHistoryItem = (itemId: string) => {
-    const newHistory = history.filter((item) => item.id !== itemId)
-    setHistory(newHistory)
-    localStorage.setItem("biasbuster-history", JSON.stringify(newHistory))
+  const clearHistoryItem = async (itemId: string) => {
+    if (!user) return
+
+    try {
+      const response = await apiCall("/users/history", "DELETE", {
+        email: user,
+        itemId: itemId,
+      })
+      setHistory(
+        response.history.map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp),
+        })),
+      )
+    } catch (error) {
+      console.error("Failed to delete history item:", error)
+    }
   }
 
-  const clearAllHistory = () => {
-    setHistory([])
-    localStorage.removeItem("biasbuster-history")
+  const clearAllHistory = async () => {
+    if (!user) return
+
+    try {
+      const response = await apiCall("/users/history", "DELETE", {
+        email: user,
+      })
+      setHistory([])
+    } catch (error) {
+      console.error("Failed to clear history:", error)
+    }
   }
 
   const replaceWord = (originalWord: string, replacement: string) => {
