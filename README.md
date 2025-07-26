@@ -1,30 +1,59 @@
-# BiasBuster Website
+# BiasBuster – Write Fair, Write Aware
+## Inspiration:
+While reading job posts, bios, and messages, we noticed that certain words like “rockstar,” “young,” or “aggressive” are commonly used but can make some people feel excluded based on gender, age, or tone.
+These words aren’t always meant to harm, but they can still send the wrong message.
+We wanted to build a tool that helps people become more aware of how their words may sound and helps them write in a way that’s fair, respectful, and inclusive.
+That’s how **BiasBuster** was born:
+- A simple, smart tool to help everyone **Write Fair, Write Aware.**
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+## Key features
+**BiasBuster** helps you :
+- Paste any text (like job posts, messages, etc.)
+- Find biased or exclusive words
+- Learn why the word might be a problem
+- Get better word suggestions
+- See a score showing how inclusive your text is
+- provides the history of the user
+- It’s fast, simple, and works in your browser
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/24pa5a4209-3804s-projects/v0-bias-buster-website)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/RBFWZz9GxtG)
+## Development Workflow
+- **Backend**: Python and Flask
+- **NLP**: Used spaCy to process the text
+- **Logic**: We made our own list of biased words and grouped them (gender, age, tone)
+- **Frontend**: HTML, CSS, and JavaScript
+- **Scoring**: We give a score out of 10 based on how inclusive the text is
+- Everything runs locally no need for big AI models or internet access.
 
-## Overview
+## Key Struggles
+- Some words are only biased in certain contexts
+- We had to make the tool helpful without being too critical
+- Keeping everything simple and quick for users
+- **False positives**: Some words can be biased in one context and harmless in another (e.g., "dominant" in sports vs leadership)
+- **UX clarity**: Displaying feedback without shaming users or overwhelming them was important. We focused on tone-friendly tooltips and color-coded highlights.
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## Milestones Achieved
+- A project that’s easy to deploy, open-source, and accessible to non-tech users
+- No external tools or paid services needed
+- Helps users learn and improve their writing
+- Built in just few days from scratch
+- Functional NLP analysis without training any models or relying on APIs
+- Designing a tool that makes people reflect on language and inclusivity
 
-## Deployment
+## Insights Gained
+- How to use NLP with spaCy
+- How to detect bias in real-world writing
+- How to design simple tools that solve real problems
+- That small tools can make a big difference
+- How to build AI tools that are ethical, practical, and helpful
+- The power of a good user experience even the best AI fails if people don’t enjoy using it
 
-Your project is live at:
+## Upcoming Features & Improvements
+- Add more words and bias types
+- Let people upload resumes or job descriptions
+- Build a browser extension
+- Expand to multilingual support
+- Add a shareable report or PDF output
+- Dashboard for HR teams to audit job posts and announcements
 
-**[https://vercel.com/24pa5a4209-3804s-projects/v0-bias-buster-website](https://vercel.com/24pa5a4209-3804s-projects/v0-bias-buster-website)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.dev/chat/projects/RBFWZz9GxtG](https://v0.dev/chat/projects/RBFWZz9GxtG)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## visit website
+https://v0-bias-buster-website.vercel.app/
